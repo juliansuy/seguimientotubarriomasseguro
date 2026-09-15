@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F5F3; --surface:#FFFFFF; --ink:#182233; --ink-soft:#5B6472; --ink-faint:#8A9099;
+    --primary:#1F3A5F; --primary-deep:#152B47; --primary-soft:#EAF0F6;
+    --accent:#D9622E; --accent-soft:#FBEAE1;
+    --success:#3E7D5A; --success-soft:#E6F1EA;
+    --warning:#B98221; --warning-soft:#FBF1DE;
+    --pending:#8A93A3; --pending-soft:#EBEDF1;
+    --border:#DFE3E8; --radius:10px;
+    --shadow:0 1px 2px rgba(21,43,71,0.06), 0 1px 1px rgba(21,43,71,0.04);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:"Public Sans",-apple-system,"Segoe UI",sans-serif;}
+  code, .mono{font-family:"IBM Plex Mono",monospace;}
+  header.topbar{background:var(--primary-deep);color:#fff;padding:18px 24px 0;}
+  .topbar-inner{max-width:1220px;margin:0 auto;}
+  .topbar h1{font-size:20px;font-weight:800;margin:0 0 2px;}
+  .topbar .sub{font-size:13px;color:#B9C6D6;margin:0 0 14px;}
+  nav.tabs{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;}
+  nav.tabs button{background:none;border:none;color:#B9C6D6;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;}
+  nav.tabs button.active{color:#fff;border-bottom-color:var(--accent);}
+  main{max-width:1220px;margin:0 auto;padding:24px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;}
+  .card + .card{margin-top:16px;}
+  h2.section-title{font-size:16px;font-weight:700;margin:0 0 4px;}
+  p.section-hint{font-size:13px;color:var(--ink-soft);margin:0 0 16px;}
+  label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;}
+  select, input[type=text], input[type=date], input[type=number], input[type=url], textarea{
+    width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:14px;background:#fff;
+  }
+  textarea{resize:vertical;min-height:64px;}
+  .field{margin-bottom:14px;}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .field-row.three{grid-template-columns:1fr 1fr 1fr;}
+  .btn{display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
+  .btn.secondary{background:#fff;color:var(--primary);border:1px solid var(--border);}
+  .btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12.5px;font-weight:600;white-space:nowrap;}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
+  .st-pendiente{background:var(--pending-soft);color:#565F6E;} .st-pendiente .dot{background:var(--pending);}
+  .st-en-curso{background:var(--warning-soft);color:#8A6215;} .st-en-curso .dot{background:var(--warning);}
+  .st-completado{background:var(--success-soft);color:#2B5C40;} .st-completado .dot{background:var(--success);}
+  .st-con-problema{background:var(--accent-soft);color:#A2481E;} .st-con-problema .dot{background:var(--accent);}
+  .st-no-aplica,.st-sin-datos{background:#F1F2F4;color:#8A9099;} .st-no-aplica .dot,.st-sin-datos .dot{background:#C1C6CD;}
+  .stepper{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px;}
+  .step-chip{cursor:pointer;border:1px solid var(--border);}
+  .step-chip.selected{outline:2px solid var(--primary);outline-offset:1px;}
+  .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;}
+  .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;}
+  .stat-box .num{font-size:24px;font-weight:800;}
+  .stat-box .lbl{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .filters-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;}
+  .filters-row .field{margin-bottom:0;min-width:150px;}
+  .filters-row .field.grow{flex:1;min-width:200px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  thead th{text-align:left;font-size:11px;text-transform:uppercase;color:var(--ink-faint);border-bottom:1px solid var(--border);padding:8px 10px;position:sticky;top:0;background:#fff;}
+  tbody td{padding:9px 10px;border-bottom:1px solid #EEF0F3;}
+  .table-scroll{max-height:560px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius);}
+  .link-btn{background:none;border:none;color:var(--primary);font-weight:700;cursor:pointer;font-size:13px;font-family:inherit;padding:0;}
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:4px 10px;font-size:13.5px;margin:12px 0;}
+  .kv div.k{color:var(--ink-soft);}
+  .modal-backdrop{position:fixed;inset:0;background:rgba(21,30,45,0.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;}
+  .modal{background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:88vh;overflow:auto;padding:22px;}
+  .modal-close{float:right;background:none;border:none;font-size:20px;cursor:pointer;}
+  .timeline-item{border-left:2px solid var(--border);padding:2px 0 12px 14px;margin-left:4px;position:relative;}
+  .timeline-item::before{content:'';position:absolute;left:-5px;top:4px;width:8px;height:8px;border-radius:50%;background:var(--primary);}
+  .timeline-item .t-head{font-size:13px;font-weight:700;}
+  .timeline-item .t-meta{font-size:12px;color:var(--ink-soft);margin:2px 0;}
+  .timeline-item .t-extra{font-size:12.5px;background:#F5F6F4;border-radius:6px;padding:6px 8px;margin-top:4px;}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--primary-deep);color:#fff;padding:10px 18px;border-radius:8px;font-size:13.5px;z-index:100;opacity:0;transition:opacity .2s;}
+  .toast.show{opacity:1;}
+  .toast.error{background:#7A2A1A;}
+  .empty-state{text-align:center;padding:40px 20px;color:var(--ink-soft);}
+  .banner{background:var(--primary-soft);border:1px solid #C9D9EA;color:var(--primary-deep);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;}
+  .loading{display:flex;align-items:center;justify-content:center;padding:80px 0;color:var(--ink-soft);}
+  .barrio-summary{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+  .barrio-pill{border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12.5px;background:#fff;}
+  .file-status{font-size:12.5px;color:var(--ink-soft);margin-top:6px;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <h1>Tu Barrio Más Seguro</h1>
+    <p class="sub">Unidad de Fondos · Seguimiento de ejecución de proyectos — Maipú</p>
+    <nav class="tabs" id="tabsNav"></nav>
+  </div>
+</header>
+<main id="main"><div class="loading">Cargando proyectos desde la planilla…</div></main>
+<div id="toastRoot"></div>
+
+<script>
+const ESTADOS_BASE = ['Pendiente','En curso','Completado','Con problema'];
+const ETAPAS_A = [
+  {key:'retiro_cheque', prefix:'RetiroCheque', label:'Retiro de Cheque'},
+  {key:'cobro_deposito', prefix:'CobroDeposito', label:'Cobro y depósito del cheque'},
+  {key:'compra_insumos', prefix:'CompraInsumos', label:'Compra de insumos'},
+  {key:'agenda_instalacion', prefix:'AgendaInstalacion', label:'Agenda de fecha de instalación'},
+  {key:'instalacion', prefix:'Instalacion', label:'Instalación'},
+  {key:'modificacion', prefix:'Modificacion', label:'Modificación'},
+  {key:'rendicion', prefix:'Rendicion', label:'Rendición'},
+  {key:'fotografias', prefix:'Fotografias', label:'Fotografías'}
+];
+const ETAPAS_B = [
+  {key:'retiro_cheque', prefix:'RetiroCheque', label:'Retiro de cheque'},
+  {key:'cobro_deposito', prefix:'CobroDeposito', label:'Cobro y depósito del cheque'},
+  {key:'contacto_agendamiento', prefix:'ContactoAgendamiento', label:'Contacto con la empresa – Agendamiento de Instalación'},
+  {key:'modificacion', prefix:'Modificacion', label:'Modificación'},
+  {key:'rendicion', prefix:'Rendicion', label:'Rendición'},
+  {key:'fotografias', prefix:'Fotografias', label:'Fotografías'}
+];
+const TIPOLOGIAS_GRUPO_A = ['RECAMBIO DE LUMINARIA','SEGURIDAD VIAL'];
+const TIPOS_MODIFICACION = ['Cambio de punto de instalación','Cambio de cantidad de puntos de instalación'];
+const MAX_PDF_BYTES = 4 * 1024 * 1024;
+
+let PROYECTOS = [];
+let currentTab = 'reportar';
+let reportarBarrio = '', reportarProjectId = null, reportarEtapaKey = null, reportarHistorial = [];
+let modFormState = null, modPendingFile = null;
+let tableroFilters = {barrio:'', tipologia:'', estado:'todos', search:''};
+let detailProjectId = null, detailHistorial = [];
+
+function escapeHtml(s){
+  if(s===undefined||s===null) return '';
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDate(v){
+  if(!v) return '—';
+  const d = new Date(v);
+  if(isNaN(d)) return String(v);
+  return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function fmtDateTime(v){
+  if(!v) return '—';
+  const d = new Date(v);
+  if(isNaN(d)) return String(v);
+  return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'}) + ' · ' + d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+}
+function fmtMoney(n){
+  const v = Number(n);
+  if(!n || isNaN(v)) return '—';
+  return '$' + v.toLocaleString('es-CL');
+}
+function daysSince(v){
+  if(!v) return null;
+  const d = new Date(v);
+  if(isNaN(d)) return null;
+  return Math.floor((Date.now()-d.getTime())/86400000);
+}
+function statusClass(estado){ return 'st-' + (estado||'sin-datos').toLowerCase().replace(/ /g,'-'); }
+function chip(estado){ return `<span class="chip ${statusClass(estado)}"><span class="dot"></span>${escapeHtml(estado||'Pendiente')}</span>`; }
+function normalizeTipologia(t){ return (t||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
+function etapasFor(p){ return TIPOLOGIAS_GRUPO_A.includes(normalizeTipologia(p.Tipologia)) ? ETAPAS_A : ETAPAS_B; }
+function projectById(id){ return PROYECTOS.find(p=>String(p.ID)===String(id)); }
+function uniqueVals(field){ return [...new Set(PROYECTOS.map(p=>p[field]).filter(Boolean))].sort(); }
+
+function toast(msg, isError){
+  const root = document.getElementById('toastRoot');
+  const el = document.createElement('div');
+  el.className = 'toast' + (isError?' error':'');
+  el.textContent = msg;
+  root.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),300); }, 2800);
+}
+
+function computeStatus(p){
+  const etapas = etapasFor(p);
+  let completedCount = 0, currentEtapaIdx = etapas.length, hasProblem = false;
+  etapas.forEach((e,i)=>{
+    const est = p[e.prefix+'_Estado'];
+    const doneLike = (est==='Completado' || est==='No aplica');
+    if(doneLike) completedCount++;
+    if(est==='Con problema') hasProblem = true;
+    if(currentEtapaIdx===etapas.length && !doneLike) currentEtapaIdx = i;
+  });
+  const finalizado = completedCount === etapas.length;
+  const dias = daysSince(p.UltimaActualizacion);
+  const sinDatos = !p.UltimaActualizacion;
+  const atrasado = hasProblem || (!finalizado && dias!==null && dias>10);
+  return {completedCount, currentEtapaIdx, hasProblem, dias, sinDatos, atrasado, finalizado, totalEtapas: etapas.length};
+}
+
+// ---------- conexión con el backend (Apps Script vía fetch, en vez de google.script.run) ----------
+// Pega aquí la URL de tu implementación de Apps Script (Implementar > Administrar implementaciones),
+// debe terminar en /exec
+const API_URL = 'PEGA_AQUI_TU_URL_DE_IMPLEMENTACION_TERMINADA_EN_/exec';
+
+function apiGet(action, params){
+  params = params || {};
+  const qs = new URLSearchParams(Object.assign({action}, params)).toString();
+  return fetch(`${API_URL}?${qs}`)
+    .then(r=>r.json())
+    .then(data=>{ if(data && data.error) throw new Error(data.error); return data; });
+}
+
+function apiPost(action, data){
+  // Content-Type text/plain evita el preflight CORS que Apps Script no maneja bien
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({action}, data))
+  })
+    .then(r=>r.json())
+    .then(resp=>{ if(resp && resp.error) throw new Error(resp.error); return resp.result; });
+}
+
+// ---------- carga inicial ----------
+function cargarProyectos(){
+  apiGet('getProyectos')
+    .then(rows=>{ PROYECTOS = rows; render(); })
+    .catch(err=>{ document.getElementById('main').innerHTML = `<div class="card empty-state"><b>No se pudo cargar la planilla.</b><p>${escapeHtml(err.message||err)}</p></div>`; });
+}
+
+// ---------- tabs ----------
+const TABS = [{key:'reportar', label:'Reportar avance'}, {key:'tablero', label:'Tablero general'}, {key:'cargar', label:'Agregar proyecto'}];
+function renderTabs(){
+  document.getElementById('tabsNav').innerHTML = TABS.map(t=>`<button class="${t.key===currentTab?'active':''}" onclick="switchTab('${t.key}')">${t.label}</button>`).join('');
+}
+function switchTab(k){ currentTab = k; render(); }
+function render(){
+  renderTabs();
+  const main = document.getElementById('main');
+  if(currentTab==='reportar') main.innerHTML = renderReportar();
+  else if(currentTab==='tablero') main.innerHTML = renderTablero();
+  else main.innerHTML = renderCargar();
+}
+
+// ---------- REPORTAR ----------
+function selectEtapa(key){
+  reportarEtapaKey = key;
+  modPendingFile = null;
+  if(key==='modificacion'){
+    const p = projectById(reportarProjectId);
+    modFormState = {
+      estado: p.Modificacion_Estado || 'No aplica', tipo: p.Modificacion_Tipo || '',
+      detalle: p.Modificacion_Detalle || '', enlaceDocumento: p.Modificacion_Enlace || '',
+      adjuntoUrl: p.Modificacion_ArchivoURL || '',
+      observaciones: p.Modificacion_Obs || '', fecha: p.Modificacion_Fecha || '',
+      reportadoPor: p.Modificacion_Por || p.Gestor || ''
+    };
+  }
+  render();
+}
+
+function renderReportar(){
+  if(!PROYECTOS.length) return `<div class="card empty-state"><b>No hay proyectos en la planilla.</b><p>Ve a "Agregar proyecto" o pega los datos directamente en la pestaña Proyectos de la Google Sheet.</p></div>`;
+  const barrios = uniqueVals('Barrio');
+  let html = `<div class="card">
+    <h2 class="section-title">Reportar avance de un proyecto</h2>
+    <p class="section-hint">Las etapas disponibles cambian según la tipología. Si te equivocas, vuelve a la misma etapa, corrige y guarda de nuevo — el historial conserva ambos registros.</p>
+    <div class="field-row">
+      <div class="field"><label>Barrio</label>
+        <select onchange="reportarBarrio=this.value; reportarProjectId=null; reportarEtapaKey=null; render();">
+          <option value="">Selecciona un barrio…</option>
+          ${barrios.map(b=>`<option value="${escapeHtml(b)}" ${b===reportarBarrio?'selected':''}>${escapeHtml(b)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Proyecto / Organización</label>
+        <select ${!reportarBarrio?'disabled':''} onchange="onSelectProyecto(this.value)">
+          <option value="">${reportarBarrio? 'Selecciona un proyecto…' : 'Primero elige un barrio'}</option>
+          ${PROYECTOS.filter(p=>p.Barrio===reportarBarrio).map(p=>`<option value="${escapeHtml(p.ID)}" ${String(p.ID)===String(reportarProjectId)?'selected':''}>${escapeHtml(p.Organizacion||p.Proyecto||p.ID)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+  </div>`;
+
+  const p = reportarProjectId ? projectById(reportarProjectId) : null;
+  if(p){
+    const etapas = etapasFor(p);
+    html += `<div class="card">
+      <h2 class="section-title">${escapeHtml(p.Proyecto || p.Organizacion || p.ID)}</h2>
+      <div class="kv">
+        <div class="k">Organización</div><div>${escapeHtml(p.Organizacion||'—')}</div>
+        <div class="k">RUT</div><div class="mono">${escapeHtml(p.RUT||'—')}</div>
+        <div class="k">Representante legal</div><div>${escapeHtml(p.Representante||'—')}</div>
+        <div class="k">Barrio</div><div>${escapeHtml(p.Barrio||'—')}</div>
+        <div class="k">Tipología</div><div>${escapeHtml(p.Tipologia||'—')}</div>
+        <div class="k">Gestor territorial</div><div>${escapeHtml(p.Gestor||'—')}</div>
+        <div class="k">Monto adjudicado</div><div>${fmtMoney(p.Monto)}</div>
+      </div>
+      <p class="section-hint" style="margin-bottom:6px;">Etapas de seguimiento para esta tipología:</p>
+      <div class="stepper">
+        ${etapas.map(e=>{
+          const est = p[e.prefix+'_Estado'] || 'Pendiente';
+          const sel = e.key===reportarEtapaKey ? 'selected':'';
+          return `<span class="chip step-chip ${statusClass(est)} ${sel}" onclick="selectEtapa('${e.key}')"><span class="dot"></span>${escapeHtml(e.label)}</span>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+    if(reportarEtapaKey==='modificacion') html += renderModificacionForm(p);
+    else if(reportarEtapaKey){
+      const etapaCfg = etapas.find(e=>e.key===reportarEtapaKey);
+      const prefix = etapaCfg.prefix;
+      html += `<div class="card">
+        <h2 class="section-title">Actualizar: ${escapeHtml(etapaCfg.label)}</h2>
+        <div class="field-row">
+          <div class="field"><label>Estado</label>
+            <select id="f_estado">${ESTADOS_BASE.map(e=>`<option value="${e}" ${p[prefix+'_Estado']===e?'selected':''}>${e}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Fecha</label><input type="date" id="f_fecha" value="${escapeHtml(toDateInput(p[prefix+'_Fecha']))}"></div>
+        </div>
+        <div class="field"><label>Observaciones</label><textarea id="f_obs">${escapeHtml(p[prefix+'_Obs']||'')}</textarea></div>
+        ${reportarEtapaKey==='fotografias' ? `<div class="field"><label>Enlaces de fotografías (uno por línea)</label><textarea id="f_enlaces">${escapeHtml(p.Fotografias_Enlaces||'')}</textarea></div>` : ''}
+        <div class="field"><label>Reportado por</label><input type="text" id="f_reportadoPor" value="${escapeHtml(p[prefix+'_Por'] || p.Gestor || '')}"></div>
+        <button class="btn" id="btnGuardarEtapa" onclick="guardarEtapa()">Guardar avance</button>
+      </div>`;
+    }
+
+    html += `<div class="card"><h2 class="section-title">Historial de este proyecto</h2><div id="historialBox"><p class="section-hint">Cargando historial…</p></div></div>`;
+    loadHistorial(p.ID, 'historialBox');
+  }
+  return html;
+}
+
+function onSelectProyecto(id){ reportarProjectId = id; reportarEtapaKey = null; render(); }
+
+function toDateInput(v){
+  if(!v) return '';
+  const d = new Date(v);
+  if(isNaN(d)) return '';
+  return d.toISOString().slice(0,10);
+}
+
+function loadHistorial(id, targetId){
+  apiGet('getHistorial', {id})
+    .then(rows=>{
+      const el = document.getElementById(targetId);
+      if(!el) return;
+      if(!rows.length){ el.innerHTML = '<p class="section-hint">Sin reportes aún para este proyecto.</p>'; return; }
+      el.innerHTML = rows.map(renderHistItem).join('');
+    })
+    .catch(()=>{
+      const el = document.getElementById(targetId);
+      if(el) el.innerHTML = '<p class="section-hint">No se pudo cargar el historial.</p>';
+    });
+}
+
+function renderHistItem(h){
+  let extra = '';
+  const bits = [];
+  if(h.Etapa==='modificacion' && h.Estado!=='No aplica'){
+    if(h.Tipo) bits.push('Tipo: ' + h.Tipo);
+    if(h.Detalle) bits.push(h.Detalle);
+    if(h.Enlace) bits.push('Enlace: ' + h.Enlace);
+    if(h.ArchivoURL) bits.push(`<a href="${escapeHtml(h.ArchivoURL)}" target="_blank" rel="noopener">Ver PDF adjunto</a>`);
+  }
+  if(bits.length) extra = `<div class="t-extra">${bits.join(' · ')}</div>`;
+  const etapaLabels = {retiro_cheque:'Retiro de cheque', cobro_deposito:'Cobro y depósito del cheque', compra_insumos:'Compra de insumos', agenda_instalacion:'Agenda de fecha de instalación', instalacion:'Instalación', contacto_agendamiento:'Contacto con la empresa – Agendamiento', modificacion:'Modificación', rendicion:'Rendición', fotografias:'Fotografías'};
+  return `<div class="timeline-item">
+    <div class="t-head">${escapeHtml(etapaLabels[h.Etapa]||h.Etapa)} · ${chip(h.Estado)}</div>
+    <div class="t-meta">${fmtDateTime(h.Timestamp)} · reportado por ${escapeHtml(h.ReportadoPor||'—')}${h.Fecha? ' · fecha: '+fmtDate(h.Fecha):''}</div>
+    ${h.Observaciones? `<div>${escapeHtml(h.Observaciones)}</div>`:''}
+    ${extra}
+  </div>`;
+}
+
+function guardarEtapa(){
+  const p = projectById(reportarProjectId);
+  const estado = document.getElementById('f_estado').value;
+  const fecha = document.getElementById('f_fecha').value;
+  const obs = document.getElementById('f_obs').value.trim();
+  const por = document.getElementById('f_reportadoPor').value.trim();
+  if(!por){ toast('Indica quién reporta este avance', true); return; }
+  const payload = {Estado: estado, Fecha: fecha, Obs: obs, Por: por};
+  if(reportarEtapaKey==='fotografias') payload.Enlaces = document.getElementById('f_enlaces').value.trim();
+  const btn = document.getElementById('btnGuardarEtapa');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  apiPost('guardarEtapa', {id: p.ID, etapaKey: reportarEtapaKey, payload})
+    .then(()=>{ toast('Avance guardado correctamente'); cargarProyectos(); })
+    .catch(err=>{ toast('No se pudo guardar: ' + (err.message||err), true); btn.disabled=false; btn.textContent='Guardar avance'; });
+}
+
+function renderModificacionForm(p){
+  const st = modFormState;
+  let inner = `<div class="field-row">
+    <div class="field"><label>¿Hubo o habrá una modificación en este proyecto?</label>
+      <select onchange="modFormState.estado=this.value; render();">
+        <option value="No aplica" ${st.estado==='No aplica'?'selected':''}>No aplica — sin modificación</option>
+        ${ESTADOS_BASE.map(e=>`<option value="${e}" ${st.estado===e?'selected':''}>${e}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Fecha</label><input type="date" value="${escapeHtml(st.fecha)}" oninput="modFormState.fecha=this.value"></div>
+  </div>`;
+
+  if(st.estado!=='No aplica'){
+    inner += `<div class="field"><label>Tipo de modificación</label>
+      <select onchange="modFormState.tipo=this.value; render();">
+        <option value="">Selecciona…</option>
+        ${TIPOS_MODIFICACION.map(t=>`<option value="${t}" ${st.tipo===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>`;
+    if(st.tipo==='Cambio de punto de instalación'){
+      inner += `<div class="field-row">
+        <div class="field"><label>Punto original</label><input type="text" id="mod_a" placeholder="Ej: Esquina Los Aromos con Real"></div>
+        <div class="field"><label>Punto nuevo</label><input type="text" id="mod_b" placeholder="Ej: Esquina Los Aromos con Sur"></div>
+      </div>`;
+    } else if(st.tipo==='Cambio de cantidad de puntos de instalación'){
+      inner += `<div class="field-row">
+        <div class="field"><label>Cantidad original</label><input type="number" id="mod_a"></div>
+        <div class="field"><label>Cantidad nueva</label><input type="number" id="mod_b"></div>
+      </div>`;
+    }
+    inner += `<div class="field"><label>Enlace al documento de autorización (recomendado)</label>
+      <input type="url" value="${escapeHtml(st.enlaceDocumento)}" oninput="modFormState.enlaceDocumento=this.value" placeholder="https://drive.google.com/...">
+    </div>
+    <div class="field"><label>O adjuntar PDF directamente (máx. 4 MB)</label>
+      <input type="file" accept="application/pdf" onchange="handleModFile(event)">
+      <div class="file-status" id="modFileStatus">${st.adjuntoUrl ? `Ya hay un PDF guardado: <a href="${escapeHtml(st.adjuntoUrl)}" target="_blank">verlo aquí</a>.` : 'Ningún archivo adjunto aún.'}</div>
+    </div>`;
+  }
+
+  inner += `<div class="field"><label>Observaciones</label><textarea oninput="modFormState.observaciones=this.value">${escapeHtml(st.observaciones)}</textarea></div>
+    <div class="field"><label>Reportado por</label><input type="text" value="${escapeHtml(st.reportadoPor)}" oninput="modFormState.reportadoPor=this.value"></div>
+    <button class="btn" id="btnGuardarMod" onclick="guardarModificacion()">Guardar modificación</button>`;
+
+  return `<div class="card"><h2 class="section-title">Actualizar: Modificación</h2>
+    <p class="section-hint">Apartado opcional: si la organización no realizará cambios, deja el estado en "No aplica".</p>
+    ${inner}</div>`;
+}
+
+function handleModFile(event){
+  const file = event.target.files && event.target.files[0];
+  const statusEl = document.getElementById('modFileStatus');
+  if(!file) return;
+  if(file.size > MAX_PDF_BYTES){
+    statusEl.textContent = 'El archivo pesa más de 4 MB. Usa el campo de enlace en su lugar.';
+    modPendingFile = null; event.target.value = ''; return;
+  }
+  statusEl.textContent = 'Leyendo archivo…';
+  const reader = new FileReader();
+  reader.onload = e=>{
+    modPendingFile = {name:file.name, base64:e.target.result.split(',')[1], type:file.type||'application/pdf'};
+    statusEl.textContent = `Listo para guardar: ${file.name}. Se subirá a Drive al presionar "Guardar modificación".`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function guardarModificacion(){
+  const p = projectById(reportarProjectId);
+  const st = modFormState;
+  if(st.estado!=='No aplica' && !st.reportadoPor){ toast('Indica quién reporta esta modificación', true); return; }
+  let detalle = '';
+  if(st.estado!=='No aplica'){
+    const a = document.getElementById('mod_a'), b = document.getElementById('mod_b');
+    if(st.tipo==='Cambio de punto de instalación' && a && b) detalle = `Punto: ${a.value||'—'} → ${b.value||'—'}`;
+    else if(st.tipo==='Cambio de cantidad de puntos de instalación' && a && b) detalle = `Cantidad: ${a.value||'—'} → ${b.value||'—'}`;
+  }
+  const btn = document.getElementById('btnGuardarMod');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+
+  function finalGuardar(archivoUrl){
+    const payload = {
+      Estado: st.estado, Tipo: st.estado==='No aplica' ? '' : st.tipo, Detalle: detalle,
+      Enlace: st.enlaceDocumento, ArchivoURL: archivoUrl || st.adjuntoUrl || '',
+      Fecha: st.fecha, Obs: st.observaciones, Por: st.reportadoPor
+    };
+    apiPost('guardarEtapa', {id: p.ID, etapaKey: 'modificacion', payload})
+      .then(()=>{ toast('Modificación guardada correctamente'); modPendingFile=null; cargarProyectos(); })
+      .catch(err=>{ toast('No se pudo guardar: ' + (err.message||err), true); btn.disabled=false; btn.textContent='Guardar modificación'; });
+  }
+
+  if(modPendingFile){
+    apiPost('guardarArchivoModificacion', {base64: modPendingFile.base64, filename: modPendingFile.name, mimeType: modPendingFile.type})
+      .then(url=> finalGuardar(url))
+      .catch(err=>{ toast('No se pudo subir el PDF: ' + (err.message||err), true); finalGuardar(''); });
+  } else {
+    finalGuardar('');
+  }
+}
+
+// ---------- TABLERO ----------
+function renderTablero(){
+  if(!PROYECTOS.length) return `<div class="card empty-state"><b>No hay proyectos en la planilla.</b></div>`;
+  const statuses = PROYECTOS.map(p=>({p, s: computeStatus(p)}));
+  const total = statuses.length;
+  const finalizados = statuses.filter(x=>x.s.finalizado).length;
+  const atrasados = statuses.filter(x=>x.s.atrasado && !x.s.finalizado).length;
+  const sinDatos = statuses.filter(x=>x.s.sinDatos).length;
+  const enCurso = total - finalizados - atrasados - sinDatos;
+  const barrios = uniqueVals('Barrio'), tipologias = uniqueVals('Tipologia');
+
+  let filtered = statuses.filter(({p,s})=>{
+    if(tableroFilters.barrio && p.Barrio!==tableroFilters.barrio) return false;
+    if(tableroFilters.tipologia && p.Tipologia!==tableroFilters.tipologia) return false;
+    if(tableroFilters.estado==='atrasados' && !s.atrasado) return false;
+    if(tableroFilters.estado==='finalizados' && !s.finalizado) return false;
+    if(tableroFilters.estado==='sin_datos' && !s.sinDatos) return false;
+    if(tableroFilters.estado==='en_curso' && (s.finalizado||s.atrasado||s.sinDatos)) return false;
+    if(tableroFilters.search){
+      const q = tableroFilters.search.toLowerCase();
+      const hay = (String(p.ID)+' '+(p.Organizacion||'')+' '+(p.Proyecto||'')+' '+(p.Gestor||'')).toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const barrioCounts = barrios.map(b=>{
+    const items = statuses.filter(x=>x.p.Barrio===b);
+    return {b, total: items.length, fin: items.filter(x=>x.s.finalizado).length, atr: items.filter(x=>x.s.atrasado && !x.s.finalizado).length};
+  });
+
+  return `
+  <div class="stats-row">
+    <div class="stat-box"><div class="num">${total}</div><div class="lbl">Proyectos totales</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--success)">${finalizados}</div><div class="lbl">Finalizados</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--warning)">${enCurso}</div><div class="lbl">En curso</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--accent)">${atrasados}</div><div class="lbl">Atrasados / con problema</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--pending)">${sinDatos}</div><div class="lbl">Sin reportar aún</div></div>
+  </div>
+  <div class="card"><h2 class="section-title">Resumen por barrio</h2>
+    <div class="barrio-summary">${barrioCounts.map(bc=>`<span class="barrio-pill">${escapeHtml(bc.b)}: <b>${bc.total}</b> total · ${bc.fin} fin. · ${bc.atr} atr.</span>`).join('')}</div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+      <h2 class="section-title" style="margin:0;">Listado de proyectos</h2>
+      <button class="btn secondary" onclick="cargarProyectos(); toast('Actualizando desde la planilla…');">↻ Actualizar</button>
+    </div>
+    <div class="filters-row" style="margin-top:14px;">
+      <div class="field"><label>Barrio</label><select onchange="tableroFilters.barrio=this.value; render();"><option value="">Todos</option>${barrios.map(b=>`<option value="${escapeHtml(b)}" ${tableroFilters.barrio===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select></div>
+      <div class="field"><label>Tipología</label><select onchange="tableroFilters.tipologia=this.value; render();"><option value="">Todas</option>${tipologias.map(t=>`<option value="${escapeHtml(t)}" ${tableroFilters.tipologia===t?'selected':''}>${escapeHtml(t)}</option>`).join('')}</select></div>
+      <div class="field"><label>Estado</label>
+        <select onchange="tableroFilters.estado=this.value; render();">
+          <option value="todos">Todos</option><option value="atrasados">Atrasados / con problema</option>
+          <option value="en_curso">En curso</option><option value="finalizados">Finalizados</option><option value="sin_datos">Sin reportar aún</option>
+        </select>
+      </div>
+      <div class="field grow"><label>Buscar</label><input type="text" placeholder="ID, organización, proyecto o gestor…" value="${escapeHtml(tableroFilters.search)}" oninput="tableroFilters.search=this.value; render();"></div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>ID</th><th>Barrio</th><th>Organización</th><th>Tipología</th><th>Etapa actual</th><th>Última actualización</th><th>Alerta</th><th></th></tr></thead>
+      <tbody>${filtered.map(({p,s})=>{
+        const etapas = etapasFor(p);
+        const etapaTxt = s.finalizado ? 'Finalizado' : `${s.completedCount+1}/${s.totalEtapas} · ${etapas[s.currentEtapaIdx].label}`;
+        const alerta = s.finalizado ? chip('Completado') : s.sinDatos ? chip('Sin datos') : s.atrasado ? chip('Con problema') : chip('En curso');
+        const ultima = s.sinDatos ? '—' : (s.dias===0 ? 'Hoy' : `Hace ${s.dias} día(s)`);
+        return `<tr><td class="mono">${escapeHtml(p.ID)}</td><td>${escapeHtml(p.Barrio)}</td><td>${escapeHtml(p.Organizacion||'—')}</td><td>${escapeHtml(p.Tipologia||'—')}</td><td>${etapaTxt}</td><td>${ultima}</td><td>${alerta}</td><td><button class="link-btn" onclick="openDetail('${escapeHtml(p.ID)}')">Ver detalle</button></td></tr>`;
+      }).join('')}</tbody>
+    </table></div>
+    ${filtered.length===0 ? '<p class="section-hint" style="margin-top:12px;">No hay proyectos que calcen con estos filtros.</p>':''}
+  </div>
+  ${detailProjectId ? renderDetailModal(detailProjectId) : ''}`;
+}
+
+function openDetail(id){ detailProjectId = id; render(); loadHistorial(id, 'detailHistorial'); }
+function closeDetail(){ detailProjectId = null; render(); }
+
+function renderDetailModal(id){
+  const p = projectById(id);
+  if(!p) return '';
+  const etapas = etapasFor(p);
+  return `<div class="modal-backdrop" onclick="if(event.target===this) closeDetail();">
+    <div class="modal">
+      <button class="modal-close" onclick="closeDetail()">×</button>
+      <h2 class="section-title">${escapeHtml(p.Proyecto||p.Organizacion||p.ID)}</h2>
+      <div class="kv">
+        <div class="k">ID interno</div><div class="mono">${escapeHtml(p.ID)}</div>
+        <div class="k">Organización</div><div>${escapeHtml(p.Organizacion||'—')}</div>
+        <div class="k">RUT</div><div class="mono">${escapeHtml(p.RUT||'—')}</div>
+        <div class="k">Representante legal</div><div>${escapeHtml(p.Representante||'—')}</div>
+        <div class="k">Barrio</div><div>${escapeHtml(p.Barrio||'—')}</div>
+        <div class="k">Tipología</div><div>${escapeHtml(p.Tipologia||'—')}</div>
+        <div class="k">Gestor territorial</div><div>${escapeHtml(p.Gestor||'—')}</div>
+        <div class="k">Monto adjudicado</div><div>${fmtMoney(p.Monto)}</div>
+      </div>
+      <div class="stepper">${etapas.map(e=>{
+        const est = p[e.prefix+'_Estado'] || 'Pendiente';
+        return `<span class="chip ${statusClass(est)}"><span class="dot"></span>${escapeHtml(e.label)}</span>`;
+      }).join('')}</div>
+      <h2 class="section-title" style="margin-top:18px;">Historial completo</h2>
+      <div id="detailHistorial"><p class="section-hint">Cargando…</p></div>
+      <div style="margin-top:16px;"><button class="btn secondary" onclick="closeDetail(); switchTab('reportar'); reportarBarrio='${escapeHtml(p.Barrio)}'; onSelectProyecto('${escapeHtml(p.ID)}');">Ir a reportar avance</button></div>
+    </div>
+  </div>`;
+}
+
+// ---------- AGREGAR PROYECTO ----------
+function renderCargar(){
+  return `
+  <div class="banner">Los 259 proyectos ya deberían estar cargados directamente en la pestaña "Proyectos" de la Google Sheet (pegados desde tu Excel). Usa este formulario solo para agregar proyectos nuevos que se sumen después.</div>
+  <div class="card">
+    <h2 class="section-title">Agregar un proyecto</h2>
+    <div class="field-row three">
+      <div class="field"><label>Barrio</label><input type="text" id="add_barrio"></div>
+      <div class="field"><label>Gestor territorial</label><input type="text" id="add_gestor"></div>
+      <div class="field"><label>Tipología</label>
+        <select id="add_tipologia">
+          <option value="LUMINARIA SOLAR">Luminaria solar</option>
+          <option value="SISTEMA DE TELEPROTECCIÓN">Sistema de Teleprotección</option>
+          <option value="ALARMAS COMUNITARIAS">Alarmas comunitarias</option>
+          <option value="SEGURIDAD VIAL">Seguridad vial</option>
+          <option value="RECAMBIO DE LUMINARIA">Recambio de luminaria</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Organización adjudicataria</label><input type="text" id="add_org"></div>
+      <div class="field"><label>RUT de organización</label><input type="text" id="add_rut"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Representante legal</label><input type="text" id="add_representante"></div>
+      <div class="field"><label>Nombre del proyecto</label><input type="text" id="add_proyecto"></div>
+    </div>
+    <div class="field"><label>Monto adjudicado</label><input type="number" id="add_monto"></div>
+    <button class="btn" id="btnAgregar" onclick="agregarProyectoUI()">Agregar proyecto</button>
+  </div>
+  <div class="card"><p class="section-hint">${PROYECTOS.length} proyecto(s) cargado(s) actualmente en la planilla.</p></div>`;
+}
+
+function agregarProyectoUI(){
+  const barrio = document.getElementById('add_barrio').value.trim();
+  const organizacion = document.getElementById('add_org').value.trim();
+  if(!barrio || !organizacion){ toast('El barrio y la organización son obligatorios', true); return; }
+  const datos = {
+    Barrio: barrio, Gestor: document.getElementById('add_gestor').value.trim(),
+    Tipologia: document.getElementById('add_tipologia').value, Organizacion: organizacion,
+    RUT: document.getElementById('add_rut').value.trim(), Representante: document.getElementById('add_representante').value.trim(),
+    Proyecto: document.getElementById('add_proyecto').value.trim(), Monto: document.getElementById('add_monto').value.trim()
+  };
+  const btn = document.getElementById('btnAgregar');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  apiPost('agregarProyecto', {datos})
+    .then(()=>{ toast('Proyecto agregado'); cargarProyectos(); })
+    .catch(err=>{ toast('No se pudo guardar: ' + (err.message||err), true); btn.disabled=false; btn.textContent='Agregar proyecto'; });
+}
+
+cargarProyectos();
+</script>
+</body>
+</html>
