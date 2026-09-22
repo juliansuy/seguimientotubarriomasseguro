@@ -47,7 +47,7 @@
   .st-pendiente{background:var(--pending-soft);color:#565F6E;} .st-pendiente .dot{background:var(--pending);}
   .st-en-curso{background:var(--warning-soft);color:#8A6215;} .st-en-curso .dot{background:var(--warning);}
   .st-completado{background:var(--success-soft);color:#2B5C40;} .st-completado .dot{background:var(--success);}
-  .st-con-problema{background:var(--accent-soft);color:#A2481E;} .st-con-problema .dot{background:var(--accent);}
+  .st-problemas-alerta{background:var(--accent-soft);color:#A2481E;} .st-problemas-alerta .dot{background:var(--accent);}
   .st-no-aplica,.st-sin-datos{background:#F1F2F4;color:#8A9099;} .st-no-aplica .dot,.st-sin-datos .dot{background:#C1C6CD;}
   .stepper{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px;}
   .step-chip{cursor:pointer;border:1px solid var(--border);}
@@ -97,7 +97,7 @@
 <div id="toastRoot"></div>
 
 <script>
-const ESTADOS_BASE = ['Pendiente','En curso','Completado','Con problema'];
+const ESTADOS_BASE = ['Pendiente','En curso','Completado','Problemas/Alerta'];
 const ETAPAS_A = [
   {key:'retiro_cheque', prefix:'RetiroCheque', label:'Retiro de Cheque'},
   {key:'cobro_deposito', prefix:'CobroDeposito', label:'Cobro y depósito del cheque'},
@@ -122,10 +122,10 @@ const MAX_PDF_BYTES = 4 * 1024 * 1024;
 
 let PROYECTOS = [];
 let currentTab = 'reportar';
-let reportarBarrio = '', reportarProjectId = null, reportarEtapaKey = null, reportarHistorial = [];
+let reportarBarrio = '', reportarProjectId = null, reportarEtapaKey = null, reportarUltimaEntrada = null;
 let modFormState = null, modPendingFile = null;
 let tableroFilters = {barrio:'', tipologia:'', estado:'todos', search:''};
-let detailProjectId = null, detailHistorial = [];
+let detailProjectId = null;
 
 function escapeHtml(s){
   if(s===undefined||s===null) return '';
@@ -154,7 +154,11 @@ function daysSince(v){
   if(isNaN(d)) return null;
   return Math.floor((Date.now()-d.getTime())/86400000);
 }
-function statusClass(estado){ return 'st-' + (estado||'sin-datos').toLowerCase().replace(/ /g,'-'); }
+function statusClass(estado){
+  return 'st-' + (estado||'sin-datos').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
 function chip(estado){ return `<span class="chip ${statusClass(estado)}"><span class="dot"></span>${escapeHtml(estado||'Pendiente')}</span>`; }
 function normalizeTipologia(t){ return (t||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
 function etapasFor(p){ return TIPOLOGIAS_GRUPO_A.includes(normalizeTipologia(p.Tipologia)) ? ETAPAS_A : ETAPAS_B; }
@@ -178,7 +182,7 @@ function computeStatus(p){
     const est = p[e.prefix+'_Estado'];
     const doneLike = (est==='Completado' || est==='No aplica');
     if(doneLike) completedCount++;
-    if(est==='Con problema') hasProblem = true;
+    if(est==='Problemas/Alerta') hasProblem = true;
     if(currentEtapaIdx===etapas.length && !doneLike) currentEtapaIdx = i;
   });
   const finalizado = completedCount === etapas.length;
@@ -188,35 +192,12 @@ function computeStatus(p){
   return {completedCount, currentEtapaIdx, hasProblem, dias, sinDatos, atrasado, finalizado, totalEtapas: etapas.length};
 }
 
-// ---------- conexión con el backend (Apps Script vía fetch, en vez de google.script.run) ----------
-// Pega aquí la URL de tu implementación de Apps Script (Implementar > Administrar implementaciones),
-// debe terminar en /exec
-const API_URL = 'https://script.google.com/macros/s/AKfycbyQD51PBPvezrJds134W2NyvrvlkSOnnPv8Oj9eSDgpzX62ssVSfENrniplkjxRr1Kb/exec';
-
-function apiGet(action, params){
-  params = params || {};
-  const qs = new URLSearchParams(Object.assign({action}, params)).toString();
-  return fetch(`${API_URL}?${qs}`)
-    .then(r=>r.json())
-    .then(data=>{ if(data && data.error) throw new Error(data.error); return data; });
-}
-
-function apiPost(action, data){
-  // Content-Type text/plain evita el preflight CORS que Apps Script no maneja bien
-  return fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(Object.assign({action}, data))
-  })
-    .then(r=>r.json())
-    .then(resp=>{ if(resp && resp.error) throw new Error(resp.error); return resp.result; });
-}
-
 // ---------- carga inicial ----------
 function cargarProyectos(){
-  apiGet('getProyectos')
-    .then(rows=>{ PROYECTOS = rows; render(); })
-    .catch(err=>{ document.getElementById('main').innerHTML = `<div class="card empty-state"><b>No se pudo cargar la planilla.</b><p>${escapeHtml(err.message||err)}</p></div>`; });
+  google.script.run
+    .withSuccessHandler(rows=>{ PROYECTOS = rows; render(); })
+    .withFailureHandler(err=>{ document.getElementById('main').innerHTML = `<div class="card empty-state"><b>No se pudo cargar la planilla.</b><p>${escapeHtml(err.message||err)}</p></div>`; })
+    .getProyectos();
 }
 
 // ---------- tabs ----------
@@ -234,20 +215,36 @@ function render(){
 }
 
 // ---------- REPORTAR ----------
+// Al elegir una etapa, siempre vamos a buscar el último registro real al Historial
+// (fuente única de verdad para fecha/estado/observaciones/reportado por/modificación).
 function selectEtapa(key){
   reportarEtapaKey = key;
   modPendingFile = null;
-  if(key==='modificacion'){
-    const p = projectById(reportarProjectId);
-    modFormState = {
-      estado: p.Modificacion_Estado || 'No aplica', tipo: p.Modificacion_Tipo || '',
-      detalle: p.Modificacion_Detalle || '', enlaceDocumento: p.Modificacion_Enlace || '',
-      adjuntoUrl: p.Modificacion_ArchivoURL || '',
-      observaciones: p.Modificacion_Obs || '', fecha: p.Modificacion_Fecha || '',
-      reportadoPor: p.Modificacion_Por || p.Gestor || ''
-    };
-  }
-  render();
+  const p = projectById(reportarProjectId);
+  google.script.run
+    .withSuccessHandler(entry=>{
+      if(key==='modificacion'){
+        modFormState = {
+          estado: (entry && entry.Estado) || 'No aplica',
+          tipo: (entry && entry.Tipo) || '',
+          detalle: (entry && entry.Detalle) || '',
+          enlaceDocumento: (entry && entry.Enlace) || '',
+          adjuntoUrl: (entry && entry.ArchivoURL) || '',
+          observaciones: (entry && entry.Observaciones) || '',
+          fecha: (entry && entry.Fecha) || '',
+          reportadoPor: (entry && entry.ReportadoPor) || p.Gestor || ''
+        };
+      } else {
+        reportarUltimaEntrada = entry || null;
+      }
+      render();
+    })
+    .withFailureHandler(()=>{
+      reportarUltimaEntrada = null;
+      if(key==='modificacion') modFormState = {estado:'No aplica', tipo:'', detalle:'', enlaceDocumento:'', adjuntoUrl:'', observaciones:'', fecha:'', reportadoPor:p.Gestor||''};
+      render();
+    })
+    .getUltimaEntradaEtapa(reportarProjectId, key);
 }
 
 function renderReportar(){
@@ -299,18 +296,18 @@ function renderReportar(){
     if(reportarEtapaKey==='modificacion') html += renderModificacionForm(p);
     else if(reportarEtapaKey){
       const etapaCfg = etapas.find(e=>e.key===reportarEtapaKey);
-      const prefix = etapaCfg.prefix;
+      const ult = reportarUltimaEntrada || {};
       html += `<div class="card">
         <h2 class="section-title">Actualizar: ${escapeHtml(etapaCfg.label)}</h2>
         <div class="field-row">
           <div class="field"><label>Estado</label>
-            <select id="f_estado">${ESTADOS_BASE.map(e=>`<option value="${e}" ${p[prefix+'_Estado']===e?'selected':''}>${e}</option>`).join('')}</select>
+            <select id="f_estado">${ESTADOS_BASE.map(e=>`<option value="${e}" ${(ult.Estado||'Pendiente')===e?'selected':''}>${e}</option>`).join('')}</select>
           </div>
-          <div class="field"><label>Fecha</label><input type="date" id="f_fecha" value="${escapeHtml(toDateInput(p[prefix+'_Fecha']))}"></div>
+          <div class="field"><label>Fecha</label><input type="date" id="f_fecha" value="${escapeHtml(toDateInput(ult.Fecha))}"></div>
         </div>
-        <div class="field"><label>Observaciones</label><textarea id="f_obs">${escapeHtml(p[prefix+'_Obs']||'')}</textarea></div>
-        ${reportarEtapaKey==='fotografias' ? `<div class="field"><label>Enlaces de fotografías (uno por línea)</label><textarea id="f_enlaces">${escapeHtml(p.Fotografias_Enlaces||'')}</textarea></div>` : ''}
-        <div class="field"><label>Reportado por</label><input type="text" id="f_reportadoPor" value="${escapeHtml(p[prefix+'_Por'] || p.Gestor || '')}"></div>
+        <div class="field"><label>Observaciones</label><textarea id="f_obs">${escapeHtml(ult.Observaciones||'')}</textarea></div>
+        ${reportarEtapaKey==='fotografias' ? `<div class="field"><label>Enlaces de fotografías (uno por línea)</label><textarea id="f_enlaces">${escapeHtml(ult.Enlace||'')}</textarea></div>` : ''}
+        <div class="field"><label>Reportado por</label><input type="text" id="f_reportadoPor" value="${escapeHtml(ult.ReportadoPor || p.Gestor || '')}"></div>
         <button class="btn" id="btnGuardarEtapa" onclick="guardarEtapa()">Guardar avance</button>
       </div>`;
     }
@@ -331,17 +328,15 @@ function toDateInput(v){
 }
 
 function loadHistorial(id, targetId){
-  apiGet('getHistorial', {id})
-    .then(rows=>{
-      const el = document.getElementById(targetId);
-      if(!el) return;
-      if(!rows.length){ el.innerHTML = '<p class="section-hint">Sin reportes aún para este proyecto.</p>'; return; }
-      el.innerHTML = rows.map(renderHistItem).join('');
-    })
-    .catch(()=>{
-      const el = document.getElementById(targetId);
-      if(el) el.innerHTML = '<p class="section-hint">No se pudo cargar el historial.</p>';
-    });
+  google.script.run.withSuccessHandler(rows=>{
+    const el = document.getElementById(targetId);
+    if(!el) return;
+    if(!rows.length){ el.innerHTML = '<p class="section-hint">Sin reportes aún para este proyecto.</p>'; return; }
+    el.innerHTML = rows.map(renderHistItem).join('');
+  }).withFailureHandler(()=>{
+    const el = document.getElementById(targetId);
+    if(el) el.innerHTML = '<p class="section-hint">No se pudo cargar el historial.</p>';
+  }).getHistorial(id);
 }
 
 function renderHistItem(h){
@@ -371,12 +366,13 @@ function guardarEtapa(){
   const por = document.getElementById('f_reportadoPor').value.trim();
   if(!por){ toast('Indica quién reporta este avance', true); return; }
   const payload = {Estado: estado, Fecha: fecha, Obs: obs, Por: por};
-  if(reportarEtapaKey==='fotografias') payload.Enlaces = document.getElementById('f_enlaces').value.trim();
+  if(reportarEtapaKey==='fotografias') payload.Enlace = document.getElementById('f_enlaces').value.trim();
   const btn = document.getElementById('btnGuardarEtapa');
   btn.disabled = true; btn.textContent = 'Guardando…';
-  apiPost('guardarEtapa', {id: p.ID, etapaKey: reportarEtapaKey, payload})
-    .then(()=>{ toast('Avance guardado correctamente'); cargarProyectos(); })
-    .catch(err=>{ toast('No se pudo guardar: ' + (err.message||err), true); btn.disabled=false; btn.textContent='Guardar avance'; });
+  google.script.run
+    .withSuccessHandler(()=>{ toast('Avance guardado correctamente'); cargarProyectos(); })
+    .withFailureHandler(err=>{ toast('No se pudo guardar: ' + (err.message||err), true); btn.disabled=false; btn.textContent='Guardar avance'; })
+    .guardarEtapa(p.ID, reportarEtapaKey, payload);
 }
 
 function renderModificacionForm(p){
@@ -463,15 +459,17 @@ function guardarModificacion(){
       Enlace: st.enlaceDocumento, ArchivoURL: archivoUrl || st.adjuntoUrl || '',
       Fecha: st.fecha, Obs: st.observaciones, Por: st.reportadoPor
     };
-    apiPost('guardarEtapa', {id: p.ID, etapaKey: 'modificacion', payload})
-      .then(()=>{ toast('Modificación guardada correctamente'); modPendingFile=null; cargarProyectos(); })
-      .catch(err=>{ toast('No se pudo guardar: ' + (err.message||err), true); btn.disabled=false; btn.textContent='Guardar modificación'; });
+    google.script.run
+      .withSuccessHandler(()=>{ toast('Modificación guardada correctamente'); modPendingFile=null; cargarProyectos(); })
+      .withFailureHandler(err=>{ toast('No se pudo guardar: ' + (err.message||err), true); btn.disabled=false; btn.textContent='Guardar modificación'; })
+      .guardarEtapa(p.ID, 'modificacion', payload);
   }
 
   if(modPendingFile){
-    apiPost('guardarArchivoModificacion', {base64: modPendingFile.base64, filename: modPendingFile.name, mimeType: modPendingFile.type})
-      .then(url=> finalGuardar(url))
-      .catch(err=>{ toast('No se pudo subir el PDF: ' + (err.message||err), true); finalGuardar(''); });
+    google.script.run
+      .withSuccessHandler(url=> finalGuardar(url))
+      .withFailureHandler(err=>{ toast('No se pudo subir el PDF: ' + (err.message||err), true); finalGuardar(''); })
+      .guardarArchivoModificacion(modPendingFile.base64, modPendingFile.name, modPendingFile.type);
   } else {
     finalGuardar('');
   }
@@ -513,7 +511,7 @@ function renderTablero(){
     <div class="stat-box"><div class="num">${total}</div><div class="lbl">Proyectos totales</div></div>
     <div class="stat-box"><div class="num" style="color:var(--success)">${finalizados}</div><div class="lbl">Finalizados</div></div>
     <div class="stat-box"><div class="num" style="color:var(--warning)">${enCurso}</div><div class="lbl">En curso</div></div>
-    <div class="stat-box"><div class="num" style="color:var(--accent)">${atrasados}</div><div class="lbl">Atrasados / con problema</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--accent)">${atrasados}</div><div class="lbl">Atrasados / con alerta</div></div>
     <div class="stat-box"><div class="num" style="color:var(--pending)">${sinDatos}</div><div class="lbl">Sin reportar aún</div></div>
   </div>
   <div class="card"><h2 class="section-title">Resumen por barrio</h2>
@@ -529,7 +527,7 @@ function renderTablero(){
       <div class="field"><label>Tipología</label><select onchange="tableroFilters.tipologia=this.value; render();"><option value="">Todas</option>${tipologias.map(t=>`<option value="${escapeHtml(t)}" ${tableroFilters.tipologia===t?'selected':''}>${escapeHtml(t)}</option>`).join('')}</select></div>
       <div class="field"><label>Estado</label>
         <select onchange="tableroFilters.estado=this.value; render();">
-          <option value="todos">Todos</option><option value="atrasados">Atrasados / con problema</option>
+          <option value="todos">Todos</option><option value="atrasados">Atrasados / con alerta</option>
           <option value="en_curso">En curso</option><option value="finalizados">Finalizados</option><option value="sin_datos">Sin reportar aún</option>
         </select>
       </div>
@@ -540,7 +538,7 @@ function renderTablero(){
       <tbody>${filtered.map(({p,s})=>{
         const etapas = etapasFor(p);
         const etapaTxt = s.finalizado ? 'Finalizado' : `${s.completedCount+1}/${s.totalEtapas} · ${etapas[s.currentEtapaIdx].label}`;
-        const alerta = s.finalizado ? chip('Completado') : s.sinDatos ? chip('Sin datos') : s.atrasado ? chip('Con problema') : chip('En curso');
+        const alerta = s.finalizado ? chip('Completado') : s.sinDatos ? chip('Sin datos') : s.atrasado ? chip('Problemas/Alerta') : chip('En curso');
         const ultima = s.sinDatos ? '—' : (s.dias===0 ? 'Hoy' : `Hace ${s.dias} día(s)`);
         return `<tr><td class="mono">${escapeHtml(p.ID)}</td><td>${escapeHtml(p.Barrio)}</td><td>${escapeHtml(p.Organizacion||'—')}</td><td>${escapeHtml(p.Tipologia||'—')}</td><td>${etapaTxt}</td><td>${ultima}</td><td>${alerta}</td><td><button class="link-btn" onclick="openDetail('${escapeHtml(p.ID)}')">Ver detalle</button></td></tr>`;
       }).join('')}</tbody>
@@ -627,9 +625,10 @@ function agregarProyectoUI(){
   };
   const btn = document.getElementById('btnAgregar');
   btn.disabled = true; btn.textContent = 'Guardando…';
-  apiPost('agregarProyecto', {datos})
-    .then(()=>{ toast('Proyecto agregado'); cargarProyectos(); })
-    .catch(err=>{ toast('No se pudo guardar: ' + (err.message||err), true); btn.disabled=false; btn.textContent='Agregar proyecto'; });
+  google.script.run
+    .withSuccessHandler(()=>{ toast('Proyecto agregado'); cargarProyectos(); })
+    .withFailureHandler(err=>{ toast('No se pudo guardar: ' + (err.message||err), true); btn.disabled=false; btn.textContent='Agregar proyecto'; })
+    .agregarProyecto(datos);
 }
 
 cargarProyectos();
